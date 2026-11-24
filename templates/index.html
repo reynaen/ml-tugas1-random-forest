@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Simulasi Random Forest - Prediksi Pelanggan E-Commerce</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head><body><main>
+<h1>Simulasi Random Forest</h1>
+<p class="s">Studi kasus: prediksi pelanggan e-commerce membeli produk. Perhitungan memakai Entropy, Gain, Split Info, dan Gain Ratio, mengikuti modul perhitungan manual.</p>
+<form method="post" action="{{ url_for('index') }}">
+<div class="card"><b>Data latih</b> (CSV, baris pertama berisi nama kolom, kolom terakhir adalah label)
+<textarea name="csv" spellcheck="false">{{ csv }}</textarea>
+<div><label>Jumlah pohon <input name="nt" type="number" min="1" max="10" value="{{ nt }}"></label>
+<label>m (kolom acak per node) <input name="m" type="number" min="1" max="10" value="{{ m }}"></label>
+<label>Seed <input name="seed" type="number" value="{{ seed }}"></label>
+<label>Bootstrap <select name="mode"><option value="lap" {{ 'selected' if mode=='lap' }}>Sesuai laporan (tetap)</option><option value="acak" {{ 'selected' if mode=='acak' }}>Acak (seed)</option></select></label></div>
+<button name="aksi" value="hitung">Hitung</button>
+<a class="btn2" href="{{ url_for('index') }}">Reset data</a></div>
+{% if error %}<p class="err">{{ error }}</p>{% endif %}
+{% if hasil %}{% set H = hasil %}
+<h2>Data latih</h2>
+<p class="s">{{ H.rows|length }} data, {{ H.cols|length }} atribut, label: {{ H.tgt }} ({{ H.classes|join(' / ') }}). Setiap pohon memakai bootstrap sampling n = {{ H.rows|length }} dan memilih {{ m }} kolom acak di setiap node.</p>
+{% for t in H.trees %}{% set ti = loop.index %}
+<h2>Pohon keputusan {{ ti }}</h2>
+<p>Hasil bootstrap (no data): {{ t.idx|join(', ') }}</p>
+<details><summary>Tabel data hasil bootstrap</summary><div class="w"><table class="t"><tr><th>No</th>{% for c in H.cols %}<th>{{ c }}</th>{% endfor %}<th>{{ H.tgt }}</th></tr>
+{% for r in t.rows %}<tr><td>{{ r.no }}</td>{% for v in r.v %}<td>{{ v }}</td>{% endfor %}<td>{{ r.y }}</td></tr>{% endfor %}</table></div></details>
+{% for L in t.log %}
+<h4>Node {{ loop.index }}{{ ': ' ~ L.path if L.path else ' (root)' }} — kolom acak: {% for x in L.ev %}{{ H.cols[x.a] }}{{ ', ' if not loop.last }}{% endfor %}; terpilih: {{ H.cols[L.best] }}</h4>
+<div class="w"><table class="t"><tr><th>Atribut</th><th>Nilai</th><th>Jumlah</th>{% for k in H.classes %}<th>{{ k }}</th>{% endfor %}<th>Entropy</th><th>Gain</th><th>Split Info</th><th>Gain Ratio</th></tr>
+<tr class="b"><td>Total</td><td></td><td>{{ L.n }}</td>{% for k in H.classes %}<td>{{ L.c.get(k, 0) }}</td>{% endfor %}<td>{{ L.e|koma }}</td><td></td><td></td><td></td></tr>
+{% for x in L.ev %}<tr class="b{{ ' best' if x.a == L.best }}"><td>{{ H.cols[x.a] }}</td><td></td><td></td>{% for k in H.classes %}<td></td>{% endfor %}<td></td><td>{{ x.g|koma }}</td><td>{{ x.si|koma }}</td><td>{{ x.gr|koma }}</td></tr>
+{% for d in x.d %}<tr><td></td><td>{{ d.v }}</td><td>{{ d.n }}</td>{% for k in H.classes %}<td>{{ d.c.get(k, 0) }}</td>{% endfor %}<td>{{ d.e|koma }}</td><td></td><td>{{ d.sp|koma }}</td><td></td></tr>{% endfor %}{% endfor %}</table></div>
+{% endfor %}
+<h4>Pohon keputusan {{ ti }}</h4><div class="w">{{ t.svg|safe }}</div>
+{% endfor %}
+<h2>Klasifikasi data baru (mayoritas vote)</h2>
+<div class="card">{% for c in H.cols %}{% set i = loop.index0 %}<label>{{ c }} <select name="x{{ i }}">{% for o in H.opsi[i] %}<option {{ 'selected' if o == H.x[i] }}>{{ o }}</option>{% endfor %}</select></label>{% endfor %}
+<div><button name="aksi" value="prediksi">Prediksi</button></div>
+{% if H.prediksi %}<div class="w"><table class="t"><tr><th>Pohon</th><th>Jalur</th><th>Hasil</th></tr>
+{% for p, y in H.jalur %}<tr><td>{{ loop.index }}</td><td>{{ p|join(' → ') }}</td><td><b>{{ y or '(tidak ada cabang)' }}</b></td></tr>{% endfor %}</table></div>
+{% if H.vote %}<p class="ok">Mayoritas vote: {{ H.vote[0][0] }} ({% for k, v in H.vote %}{{ k }} = {{ v }}{{ ', ' if not loop.last }}{% endfor %})</p>{% endif %}{% endif %}</div>
+{% endif %}
+</form></main></body></html>
